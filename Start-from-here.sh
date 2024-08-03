@@ -6,36 +6,40 @@ command_exists() {
 
 install_curl() {
     echo "curl is not installed. Installing curl..."
-    if command_exists apt; then
+    if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
         sudo apt update && sudo apt install -y curl
-    elif command_exists yum; then
+    elif [[ "$os_id" == "centos" || "$os_id" == "rhel" ]]; then
         sudo yum install -y curl
-    elif command_exists dnf; then
+    elif [[ "$os_id" == "fedora" ]]; then
         sudo dnf install -y curl
-    elif command_exists zypper; then
+    elif [[ "$os_id" == "opensuse" ]]; then
         sudo zypper install -y curl
     else
-        echo "Unsupported package manager. Please install curl manually."
+        echo "Unsupported OS. Please install curl manually."
         exit 1
     fi
 }
 
 install_qemu() {
     echo "Installing QEMU..."
-    if command_exists apt; then
-        sudo apt update && sudo apt install -y qemu qemu-kvm libvirt-bin bridge-utils virt-manager
-    elif command_exists yum; then
+    if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
+        sudo apt update && sudo apt install -y qemu qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
+        sudo systemctl enable libvirtd
+        sudo systemctl start libvirtd
+    elif [[ "$os_id" == "centos" || "$os_id" == "rhel" ]]; then
         sudo yum install -y qemu-kvm libvirt libvirt-python libguestfs-tools virt-install
-    elif command_exists dnf; then
+        sudo systemctl enable libvirtd
+        sudo systemctl start libvirtd
+    elif [[ "$os_id" == "fedora" ]]; then
         sudo dnf install -y @virtualization
-        sudo systemctl start libvirtd
         sudo systemctl enable libvirtd
-    elif command_exists zypper; then
+        sudo systemctl start libvirtd
+    elif [[ "$os_id" == "opensuse" ]]; then
         sudo zypper install -y qemu-kvm libvirt virt-install
-        sudo systemctl start libvirtd
         sudo systemctl enable libvirtd
+        sudo systemctl start libvirtd
     else
-        echo "Unsupported package manager. Please install QEMU manually."
+        echo "Unsupported OS. Please install QEMU manually."
         exit 1
     fi
 }
@@ -57,8 +61,22 @@ move_to_path() {
     echo "Minikube has been moved to $target_dir."
 }
 
+# Detect OS type
 os_type=$(uname -s)
 echo "Detected OS: $os_type"
+
+# Determine the specific Linux distribution
+if [ -e /etc/os-release ]; then
+    . /etc/os-release
+    os_id=$ID
+elif command_exists lsb_release; then
+    os_id=$(lsb_release -si | tr '[:upper:]' '[:lower:]')
+else
+    echo "Unable to determine the Linux distribution."
+    exit 1
+fi
+
+echo "Detected Linux Distribution: $os_id"
 
 if ! command_exists curl; then
     install_curl
